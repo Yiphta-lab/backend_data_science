@@ -5,3 +5,5 @@ matplotlib
 Flask-Cors
 transformers
 torch
+requests
+gunicorn==23.0.0
