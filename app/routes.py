@@ -1,5 +1,6 @@
 from app import app
-from flask import render_template, jsonify, request
+from flask import render_template, jsonify, request, send_file
+import requests
 import os
 import pandas as pd 
 import json
@@ -26,7 +27,10 @@ train_percentage = None
 test_percentage = None
 selected_model = None
 unselected_columns = None
-
+API_URL ="https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+HEADERS = {
+    "Authorization": "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"
+}
 
 berttokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 bertmodel = BertForMaskedLM.from_pretrained("bert-base-uncased")
@@ -350,3 +354,40 @@ def llm_models():
     elif request.method == 'GET':
         return jsonify({'models': list(llm_models.keys())})
     return jsonify({'error': 'Please! select a valid method'})
+api_url ="https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+api_key = "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"
+
+# Fonction de génération d'image
+def generate_image_from_text(prompt):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    data = {
+        "inputs": prompt,
+        "options": {"wait_for_model": True}  # Permet d'attendre la disponibilité du modèle
+    }
+
+    response = requests.post(api_url, headers=headers, json=data)
+
+    if response.status_code == 200:
+        # L'API retourne l'image sous forme de bytes
+        image_data = response.content
+        image_path = os.path.join(os.path.dirname(__file__), "generated_image.png")
+        with open(image_path, "wb") as f:
+            f.write(image_data)
+        return image_path
+    else:
+        print(f"Failed to generate image. Status code: {response.status_code}")
+        print("Error message:", response.text)
+        return None
+@app.route('/generate-image', methods=['POST'])
+def generate_image():
+    text = request.json.get('text', '')
+    image_path = generate_image_from_text(text)
+    
+    if image_path:
+        return send_file(image_path, mimetype='image/png')
+    else:
+        return jsonify({"error": "Failed to generate image"}), 500
